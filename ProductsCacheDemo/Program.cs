@@ -1,3 +1,7 @@
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using ProductsCacheDemo.Common.Behaviors;
+using ProductsCacheDemo.Data;
 
 namespace ProductsCacheDemo
 {
@@ -10,8 +14,21 @@ namespace ProductsCacheDemo
             // Add services to the container.
 
             builder.Services.AddControllers();
-            // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
+
+            builder.Services.AddDbContext<AppDbContext>(options =>
+            options.UseInMemoryDatabase("ProductsCacheDb"));
+
+            builder.Services.AddMemoryCache();
+
+            builder.Services.AddMediatR(cfg =>
+            {
+                cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(CachingBehavior<,>));
+            });
+
 
             var app = builder.Build();
 
@@ -19,6 +36,7 @@ namespace ProductsCacheDemo
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+                app.UseSwagger();
                 app.UseSwaggerUI();
             }
 
