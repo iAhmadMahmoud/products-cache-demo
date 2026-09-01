@@ -1,5 +1,5 @@
 ﻿using ProductsCacheDemo.Common.Interfaces;
-using ProductsCacheDemo.Features.Products.Dtos;
+using ProductsCacheDemo.Features.Categories.Dtos;
 
 namespace ProductsCacheDemo.Features.Categories.Queries
 {

@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using ProductsCacheDemo.Data;
-using ProductsCacheDemo.Features.Products.Dtos;
+using ProductsCacheDemo.Features.Categories.Dtos;
 
 namespace ProductsCacheDemo.Features.Categories.Queries
 {
