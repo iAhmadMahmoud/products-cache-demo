@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using ProductsCacheDemo.Data;
 using ProductsCacheDemo.Features.Products.Dtos;
@@ -8,8 +9,8 @@ namespace ProductsCacheDemo.Features.Products.Commands
     public class UpdateProductHandler : IRequestHandler<UpdateProductCommand, ProductDto?>
     {
         private readonly AppDbContext _context;
-        private readonly IMemoryCache _cache;
-        public UpdateProductHandler(AppDbContext context, IMemoryCache cache)
+        private readonly IDistributedCache _cache;
+        public UpdateProductHandler(AppDbContext context, IDistributedCache cache)
         {
             _context = context;
             _cache = cache;
@@ -32,10 +33,10 @@ namespace ProductsCacheDemo.Features.Products.Commands
 
             //remove this item from cache 
 
-            _cache.Remove($"product-{product.Id}");
-            _cache.Remove($"products-all");
+            await _cache.RemoveAsync($"product-{product.Id}", cancellationToken);
+            await _cache.RemoveAsync($"products-all", cancellationToken);
 
-            Console.WriteLine($"---> [CACHE INVALIDATED] Cache cleared for 'product-{product.Id}' and 'products-all'");
+            Console.WriteLine($"---> [REDIS CACHE INVALIDATED] cleared for 'product-{product.Id}' and 'products-all'");
 
             return new ProductDto(
                 product.Id,

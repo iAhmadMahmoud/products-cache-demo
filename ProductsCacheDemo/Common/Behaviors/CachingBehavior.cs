@@ -1,43 +1,52 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
+using Pipelines.Sockets.Unofficial;
 using ProductsCacheDemo.Common.Interfaces;
+using System.Text.Json;
 
 namespace ProductsCacheDemo.Common.Behaviors
 {
     public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : ICacheableQuery<TResponse>
     {
-        private readonly IMemoryCache _cache;
+       
+        private readonly IDistributedCache _cache;
 
-        public CachingBehavior(IMemoryCache cache)
+        public CachingBehavior(IDistributedCache cache)
         {
             _cache = cache;
         }
 
         public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
-            if (_cache.TryGetValue(request.CacheKey, out TResponse? cachedResponse) && cachedResponse is not null)
+            var cachedData = await _cache.GetStringAsync(request.CacheKey, cancellationToken);
+
+            if (!string.IsNullOrEmpty(cachedData))
             {
-                Console.WriteLine($"--->[CACHE HIT] Fetching data for key: '{request.CacheKey}' from Memory Cache.");
-                return cachedResponse;
+                Console.WriteLine($"---> [REDIS CACHE HIT] Key: '{request.CacheKey}'");
+                return JsonSerializer.Deserialize<TResponse>(cachedData)!;
             }
 
-            Console.WriteLine($"---> [CACHE MISS] Key: '{request.CacheKey}' not found. Executing DB Handler...");
+            Console.WriteLine($"---> [REDIS CACHE MISS] Key: '{request.CacheKey}'");
             var response = await next();
 
             if (response is not null)
             {
-                var options = new MemoryCacheEntryOptions();
+                var options = new DistributedCacheEntryOptions();
                 if (request.SlidingExpiration.HasValue)
                 {
                     options.SetSlidingExpiration(request.SlidingExpiration.Value);
                 }
 
-                _cache.Set(request.CacheKey, response, options);
-                Console.WriteLine($"---> [CACHE SAVED] Data for key: '{request.CacheKey}' saved to Memory Cache.");
+                var serializedData = JsonSerializer.Serialize(response);
+                await _cache.SetStringAsync(request.CacheKey, serializedData,options, cancellationToken);
+
+                Console.WriteLine($"---> [REDIS CACHE SAVED] Key: '{request.CacheKey}'");
             }
 
             return response;
-                                   
+
+                       
         }
     }
 }

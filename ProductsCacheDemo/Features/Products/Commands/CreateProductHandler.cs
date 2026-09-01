@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using ProductsCacheDemo.Data;
 using ProductsCacheDemo.Features.Products.Dtos;
@@ -9,12 +10,12 @@ namespace ProductsCacheDemo.Features.Products.Commands
     public class CreateProductHandler : IRequestHandler<CreateProductCommand, ProductDto>
     {
         private readonly AppDbContext _context;
-        private readonly IMemoryCache _cache;
+        private readonly IDistributedCache _cache;
 
-        public CreateProductHandler(AppDbContext context, IMemoryCache cache)
+        public CreateProductHandler(IDistributedCache cache, AppDbContext context)
         {
-            _context = context;
             _cache = cache;
+            _context = context;
         }
 
         public async Task<ProductDto> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -30,11 +31,11 @@ namespace ProductsCacheDemo.Features.Products.Commands
             _context.Products.Add(product);
             await _context.SaveChangesAsync(cancellationToken);
 
-            _cache.Remove($"category-{product.CategoryId}-products");
+            await _cache.RemoveAsync($"category-{product.CategoryId}-products", cancellationToken);
 
-            _cache.Remove($"product-all");
+            await _cache.RemoveAsync($"product-all",cancellationToken);
 
-            Console.WriteLine($"---> [DEPENDENT CACHE INVALIDATED] Cleared 'category-{product.CategoryId}-products' and 'products-all'");
+            Console.WriteLine($"---> [REDIS CACHE INVALIDATED] Cleared 'category-{product.CategoryId}-products' and 'products-all'");
 
             return new ProductDto(
                 product.Id,
