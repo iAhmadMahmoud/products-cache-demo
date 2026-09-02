@@ -41,8 +41,8 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
     {
         var cacheKey = request.CacheKey;
 
-        // 1. First cache check (outside lock)
-        var cachedData = await _cache.GetStringAsync(cacheKey, cancellationToken);
+        // 1. First cache check (outside lock, resilient)
+        var cachedData = await SafeGetCacheAsync(cacheKey, cancellationToken);
         if (!string.IsNullOrEmpty(cachedData))
         {
             if (cachedData == NullCacheSentinel)
@@ -61,8 +61,8 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 
         try
         {
-            // Double-checked locking pattern
-            cachedData = await _cache.GetStringAsync(cacheKey, cancellationToken);
+            // Double-checked locking pattern (resilient)
+            cachedData = await SafeGetCacheAsync(cacheKey, cancellationToken);
             if (!string.IsNullOrEmpty(cachedData))
             {
                 if (cachedData == NullCacheSentinel)
@@ -86,7 +86,7 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                     AbsoluteExpirationRelativeToNow = NullCacheExpiration
                 };
 
-                await _cache.SetStringAsync(cacheKey, NullCacheSentinel, nullOptions, cancellationToken);
+                await SafeSetCacheAsync(cacheKey, NullCacheSentinel, nullOptions, cancellationToken);
                 _logger.LogInformation("---> [REDIS CACHE SAVED (NULL SENTINEL)] Key: '{CacheKey}'", cacheKey);
                 return response;
             }
@@ -102,7 +102,7 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
             }
 
             var serializedData = JsonSerializer.Serialize(response);
-            await _cache.SetStringAsync(cacheKey, serializedData, options, cancellationToken);
+            await SafeSetCacheAsync(cacheKey, serializedData, options, cancellationToken);
 
             _logger.LogInformation("---> [REDIS CACHE SAVED] Key: '{CacheKey}'", cacheKey);
             return response;
@@ -110,6 +110,31 @@ public class CachingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         finally
         {
             semaphore.Release();
+        }
+    }
+
+    private async Task<string?> SafeGetCacheAsync(string key, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _cache.GetStringAsync(key, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "---> [REDIS CACHE UNAVAILABLE] Error reading key '{CacheKey}'. Falling back to DB.", key);
+            return null;
+        }
+    }
+
+    private async Task SafeSetCacheAsync(string key, string data, DistributedCacheEntryOptions options, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _cache.SetStringAsync(key, data, options, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "---> [REDIS CACHE UNAVAILABLE] Error saving key '{CacheKey}'. Continuing without cache.", key);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using ProductsCacheDemo.Features.Products.Commands;
 using ProductsCacheDemo.Features.Products.Dtos;
@@ -17,6 +17,13 @@ namespace ProductsCacheDemo.Controllers
             _sender = sender;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var result = await _sender.Send(new GetAllProductsQuery());
+            return Ok(result);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -26,7 +33,6 @@ namespace ProductsCacheDemo.Controllers
                 return NotFound($"Product with ID {id} not found.");
             }
             return Ok(result);
-
         }
 
         [HttpPut("{id}")]
@@ -38,6 +44,17 @@ namespace ProductsCacheDemo.Controllers
                 return NotFound($"Product with ID {Id} not found.");
             }
             return Ok(updateProduct);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var deleted = await _sender.Send(new DeleteProductCommand(id));
+            if (!deleted)
+            {
+                return NotFound($"Product with ID {id} not found.");
+            }
+            return NoContent();
         }
 
         [HttpGet("category/{categoryId}")]
