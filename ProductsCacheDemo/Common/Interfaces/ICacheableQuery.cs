@@ -1,10 +1,11 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ProductsCacheDemo.Common.Interfaces
 {
-    public interface ICacheableQuery<TResponse>:IRequest<TResponse>
+    public interface ICacheableQuery<TResponse> : IRequest<TResponse>
     {
-        string CacheKey {  get; }
-        TimeSpan? SlidingExpiration { get; }
+        string CacheKey { get; }
+        TimeSpan? SlidingExpiration => null;
+        TimeSpan? AbsoluteExpirationRelativeToNow => null;
     }
 }

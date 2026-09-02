@@ -1,6 +1,7 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using ProductsCacheDemo.Common.Constants;
 using ProductsCacheDemo.Data;
 using ProductsCacheDemo.Features.Products.Dtos;
 using ProductsCacheDemo.Models;
@@ -11,11 +12,16 @@ namespace ProductsCacheDemo.Features.Products.Commands
     {
         private readonly AppDbContext _context;
         private readonly IDistributedCache _cache;
+        private readonly ILogger<CreateProductHandler> _logger;
 
-        public CreateProductHandler(IDistributedCache cache, AppDbContext context)
+        public CreateProductHandler(
+            IDistributedCache cache,
+            AppDbContext context,
+            ILogger<CreateProductHandler> logger)
         {
             _cache = cache;
             _context = context;
+            _logger = logger;
         }
 
         public async Task<ProductDto> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -31,11 +37,13 @@ namespace ProductsCacheDemo.Features.Products.Commands
             _context.Products.Add(product);
             await _context.SaveChangesAsync(cancellationToken);
 
-            await _cache.RemoveAsync($"category-{product.CategoryId}-products", cancellationToken);
+            var categoryKey = CacheKeys.CategoryProducts(product.CategoryId);
+            var productsAllKey = CacheKeys.ProductsAll;
 
-            await _cache.RemoveAsync($"product-all",cancellationToken);
+            await _cache.RemoveAsync(categoryKey, cancellationToken);
+            await _cache.RemoveAsync(productsAllKey, cancellationToken);
 
-            Console.WriteLine($"---> [REDIS CACHE INVALIDATED] Cleared 'category-{product.CategoryId}-products' and 'products-all'");
+            _logger.LogInformation("---> [REDIS CACHE INVALIDATED] Cleared '{CategoryKey}' and '{ProductsAllKey}'", categoryKey, productsAllKey);
 
             return new ProductDto(
                 product.Id,

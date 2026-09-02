@@ -25,7 +25,7 @@ namespace ProductsCacheDemo
             // Register Redis Distributed Cache
             builder.Services.AddStackExchangeRedisCache(options =>
             {
-                options.Configuration = "localhost:6379";
+                options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
                 options.InstanceName = "ProductsCacheDemo_";
             });
 
