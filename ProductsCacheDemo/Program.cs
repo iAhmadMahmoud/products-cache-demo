@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using ProductsCacheDemo.Common.Behaviors;
+using ProductsCacheDemo.Common.Middlewares;
 using ProductsCacheDemo.Data;
 
 namespace ProductsCacheDemo
@@ -19,9 +20,14 @@ namespace ProductsCacheDemo
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddDbContext<AppDbContext>(options =>
-            options.UseInMemoryDatabase("ProductsCacheDb"));
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            builder.Services.AddMemoryCache();
+            // Register Redis Distributed Cache
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = "localhost:6379";
+                options.InstanceName = "ProductsCacheDemo_";
+            });
 
             builder.Services.AddMediatR(cfg =>
             {
@@ -47,6 +53,8 @@ namespace ProductsCacheDemo
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+
+            app.UseMiddleware<PerformanceLoggingMiddleware>();
 
             app.UseHttpsRedirection();
 
